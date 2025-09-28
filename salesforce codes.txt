@@ -1,0 +1,337 @@
+//leaveEmployee.html
+<template>
+    <lightning-card>
+        <lightning-button variant="base" label={labelHideShow} onclick={handleClickButton}
+            class="slds-var-m-around_medium"></lightning-button>
+        <template if:true={isButtonClicked}>
+            <div class="slds-box slds-var-m-around_medium">
+                Leave is earned by an employee and granted by the employer to take time off from the work. The employee
+                is free to avail this leave in accordance with the company policy
+            </div>
+        </template>
+    </lightning-card>
+
+    <lightning-button-group class="slds-align_absolute-center">
+        <lightning-button label="Apply" onclick={handleApplyLeave}></lightning-button>
+        <lightning-button label="Pending" onclick={handlePendingLeave}></lightning-button>
+        <lightning-button label="History" onclick={handleLeaveHistory}></lightning-button>
+    </lightning-button-group></br>
+
+    <template if:true={isApplyLeave}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="modal-heading-01"
+            class="slds-modal slds-fade-in-open slds-modal_medium">
+            <div class="slds-modal__container">
+                <button onclick={handleClose} class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse">
+                    <lightning-icon icon-name="utility:close" alternative-text="Close" variant="inverse"></lightning-icon>
+                    <span class="slds-assistive-text"> Cancel and Close</span>
+                </button>
+                <div class="slds-modal__header">
+                    <h1 id="modal-heading-01" class="slds-modal__title slds-hyphenate" tabindex="-1"> Apply Leave
+                    </h1>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium" id="modal-content-id-1">
+                    <lightning-record-edit-form id="recordViewForm" object-api-name="Leave_Management__c"
+                        onsuccess={handleSave}>
+                        <lightning-input-field field-name="User__c"></lightning-input-field>
+                        <lightning-input-field field-name="Type_of_leave__c"></lightning-input-field>
+                        <lightning-input-field field-name="From_date__c"></lightning-input-field>
+                        <lightning-input-field field-name="To_date__c"></lightning-input-field>
+                        <lightning-input-field field-name="Reason__c"></lightning-input-field>
+                        <lightning-input-field field-name="Status__c"></lightning-input-field>
+                        <lightning-input-field field-name="No_of_days__c"></lightning-input-field>
+                        <div class="slds-align_absolute-center">
+                            <lightning-button variant="brand" type="submit" label="Save" class="slds-m-left_small">
+                            </lightning-button>
+                            <lightning-button variant="brand" label="Cancel" onclick={handleClose}
+                                class="slds-m-left_small"> </lightning-button>
+                        </div>
+                    </lightning-record-edit-form>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+
+    <template if:true={isPendingLeave}>
+        <lightning-datatable key-field="Id" data={dataList} show-row-number-column row-number-offset={rowOffset}
+            hide-checkbox-column columns={columnsList} onrowaction={handleRowAction}>
+        </lightning-datatable>
+    </template>
+
+    <template if:true={isLeaveHistory}>
+        <lightning-datatable key-field="Id" data={dataList} show-row-number-column row-number-offset={rowOffset}
+            hide-checkbox-column columns={columnsList} onrowaction={handleRowAction}>
+        </lightning-datatable>
+    </template>
+
+    <template if:true={isEdit}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="modal-heading-02"
+            class="slds-modal slds-fade-in-open slds-modal_medium">
+            <div class="slds-modal__container">
+                <button onclick={handleClose} class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse">
+                    <lightning-icon icon-name="utility:close" alternative-text="Close" variant="inverse"></lightning-icon>
+                    <span class="slds-assistive-text"> Cancel and Close</span>
+                </button>
+                <div class="slds-modal__header">
+                    <h1 id="modal-heading-02" class="slds-modal__title slds-hyphenate" tabindex="-1"> Edit Leave
+                    </h1>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium" id="modal-content-id-2">
+                    <lightning-record-edit-form id="recordViewForm1" object-api-name="Leave_Management__c"
+                        onsuccess={handleSave}>
+                        <lightning-input-field field-name="User__c"></lightning-input-field>
+                        <lightning-input-field field-name="Type_of_leave__c"></lightning-input-field>
+                        <lightning-input-field field-name="From_date__c"></lightning-input-field>
+                        <lightning-input-field field-name="To_date__c"></lightning-input-field>
+                        <lightning-input-field field-name="Reason__c"></lightning-input-field>
+                        <lightning-input-field field-name="Status__c"></lightning-input-field>
+                        <lightning-input-field field-name="No_of_days__c"></lightning-input-field>
+                        <div class="slds-align_absolute-center">
+                            <lightning-button variant="brand" type="submit" label="Save" class="slds-m-left_small">
+                            </lightning-button>
+                            <lightning-button variant="brand" label="Cancel" onclick={handleClose}
+                                class="slds-m-left_small">
+                            </lightning-button>
+                        </div>
+                    </lightning-record-edit-form>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+</template>
+
+
+
+
+//leaveEmployee.js
+import { LightningElement, track } from 'lwc';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import getPendingLeaves from '@salesforce/apex/LeaveManagementHandler.getPendingLeaves';
+import getLeavesHistory from '@salesforce/apex/LeaveManagementHandler.getLeavesHistory';
+
+export default class LeaveEmployee extends LightningElement {
+    @track isButtonClicked = true;
+    @track labelHideShow = 'Hide';
+    @track isApplyLeave = false;
+    @track isPendingLeave = false;
+    @track isLeaveHistory = false;
+    @track isEdit = false;
+    @track recordId = '';
+    @track dataList = [];
+    @track columnsList = [
+        { label: 'User', fieldName: 'userName' },
+        { label: 'Type of leave', fieldName: 'Type_of_leave__c' },
+        { label: 'From date', fieldName: 'From_date__c' },
+        { label: 'To date', fieldName: 'To_date__c' },
+        { label: 'Reason', fieldName: 'Reason__c' },
+        {
+            label: 'Status', fieldName: 'Status__c', cellAttributes: {
+                class: {
+                    fieldName: 'statuscss'
+                }
+            }
+        },
+        { label: 'No of days', fieldName: 'No_of_days__c' },
+        {
+            type: 'button',
+            typeAttributes: {
+                label: 'Edit',
+                disabled : {fieldName : 'isEditdisabled'}
+            }
+        }
+    ];
+
+    handleClickButton() {
+        this.isButtonClicked = !this.isButtonClicked;
+        this.labelHideShow = this.isButtonClicked ? 'Hide' : 'Show';
+    }
+
+    handleApplyLeave() {
+        this.isApplyLeave = true;
+        this.isLeaveHistory = false;
+        this.isPendingLeave = false;
+    }
+
+    handleClose() {
+        this.isApplyLeave = false;
+        this.isEdit = false;
+    }
+
+    handleSave(event) {
+        const eve = new ShowToastEvent({
+            title: 'Success',
+            message: 'Record Created/Updated Successfully : Id = ' + event.detail.id,
+            variant: 'success'
+        });
+        this.dispatchEvent(eve);
+        this.isApplyLeave = false;
+        this.isEdit = false;
+        this.isLeaveHistory = false;
+        this.isPendingLeave = false;
+    }
+
+    handlePendingLeave() {
+        this.isPendingLeave = true;
+        this.isApplyLeave = false;
+        this.isLeaveHistory = false;
+        getPendingLeaves()
+            .then((result) => {
+                console.log('result==', JSON.stringify(result));
+                this.dataList = result.map(a => {
+                    return {
+                        ...a, userName: a.User__r != undefined ? a.User__r.Name : '',
+                        isEditdisabled : a.Status__c !='Pending',
+                        statuscss: a.Status__c == 'Approved' ? 'slds-theme_success' : a.Status__c == 'Rejected' ? 'slds-theme_error' : 'slds-theme_warning'
+                    }
+                });
+            })
+            .catch((error) => {
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Error loading pending leaves',
+                        message: error.body ? error.body.message : error.message,
+                        variant: 'error'
+                    })
+                );
+            });
+    }
+
+    handleLeaveHistory() {
+        this.isLeaveHistory = true;
+        this.isPendingLeave = false;
+        this.isApplyLeave = false;
+        getLeavesHistory()
+            .then((result) => {
+                this.dataList = result.map(a => {
+                    return {
+                        ...a, userName: a.User__r != undefined ? a.User__r.Name : '',
+                        isEditdisabled : a.Status__c !='Pending',
+                        statuscss: a.Status__c == 'Approved' ? 'slds-theme_success' : a.Status__c == 'Rejected' ? 'slds-theme_error' : 'slds-theme_warning'
+                    };
+                });
+            })
+            .catch((error) => {
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Error loading leaves history',
+                        message: error.body ? error.body.message : error.message,
+                        variant: 'error'
+                    })
+                );
+            });
+    }
+
+    handleRowAction(event) {
+        this.isEdit = true;
+        this.recordId = event.detail.row.Id;
+        console.log(' this.recordId', this.recordId);
+    }
+}
+
+
+
+//leaveManagement.html
+<template>
+    <lightning-tabset>
+        <lightning-tab label="Employee">
+            <c-leave-employee></c-leave-employee>
+        </lightning-tab>
+        <lightning-tab label="Manager">
+            <c-leave-management-manager></c-leave-management-manager>
+        </lightning-tab>
+    </lightning-tabset>
+</template>
+
+
+
+//leaveManagementManager.html
+<template>
+    <lightning-card>
+        <lightning-datatable key-field="id" data={dataList} show-row-number-column row-number-offset={rowOffset}
+            hide-checkbox-column columns={columnsList} onrowaction={handleRowAction}>
+        </lightning-datatable>
+    </lightning-card>
+</template>
+
+
+
+
+//leaveManagementManager.js
+import { LightningElement, track } from 'lwc';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import getLeaves from '@salesforce/apex/LeaveManagementHandler.getLeaves';
+
+export default class LeaveManagementManager extends LightningElement {
+    @track recordId = '';
+    @track dataList = [];
+    @track columnsList = [
+        { label: 'User', fieldName: 'userName' },
+        { label: 'Type of leave', fieldName: 'Type_of_leave__c' },
+        { label: 'From date', fieldName: 'From_date__c' },
+        { label: 'To date', fieldName: 'To_date__c' },
+        { label: 'Reason', fieldName: 'Reason__c' },
+        {
+            label: 'Status', fieldName: 'Status__c', cellAttributes: {
+                class: {
+                    fieldName: 'statuscss'
+                }
+            }
+        },
+        { label: 'No of days', fieldName: 'No_of_days__c' },
+        {
+            type: 'button',
+            typeAttributes: {
+                label: 'Edit',
+                //disabled: { fieldName: 'isEditdisabled' }
+            }
+        }
+    ];
+
+    connectedCallback() {
+        this.handleLoad();
+    }
+
+    handleLoad() {
+        getLeaves()
+            .then((result) => {
+                console.log('result==', JSON.stringify(result));
+                this.dataList = result.map(a => {
+                    return {
+                        ...a,
+                        userName: a.User__r != undefined ? a.User__r.Name : '',
+                        //isEditdisabled: a.Status__c != 'Pending',
+                        statuscss: a.Status__c == 'Approved' ? 'slds-theme_success' :
+                            a.Status__c == 'Rejected' ? 'slds-theme_error' :
+                                'slds-theme_warning'
+                    }
+                });
+            })
+            .catch((error) => {
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Error loading leaves',
+                        message: error.body ? error.body.message : error.message,
+                        variant: 'error'
+                    })
+                );
+            });
+    }
+    handleRowAction(event) {
+        this.isEdit = true;
+        this.recordId = event.detail.row.Id;
+    }
+    handleClose() {
+        this.isEdit = false;
+    }
+    handleSave(event) {
+        const eve = new ShowToastEvent({
+            title: 'Success',
+            message: 'Record Created/Updated Successfully : Id = ' + event.detail.id,
+            variant: 'success'
+        });
+        this.dispatchEvent(eve);
+        this.isEdit = false;
+        window.location.reload();
+    }
+}
